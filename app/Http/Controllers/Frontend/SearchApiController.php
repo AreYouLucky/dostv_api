@@ -37,7 +37,7 @@ class SearchApiController extends Controller
 
         return $query->paginate(6);
     }
-    
+
     public function advanceSearch(Request $request)
     {
         $query = Post::query()
@@ -101,7 +101,7 @@ class SearchApiController extends Controller
                     ->whereIn('post_regions.region_id', $request->regions);
             });
         }
-
+        $query->groupBy('posts.post_id');
         $query->orderBy('posts.date_published', 'desc');
 
         return response()->json(
