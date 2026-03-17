@@ -9,6 +9,6 @@ use App\Models\Partner;
 class PartnersApiController extends Controller
 {
     public function loadPartners(){
-        return Partner::orderBy('order', 'desc')->get();
+        return Partner::orderBy('priority', 'desc')->get();
     }
 }

@@ -45,23 +45,20 @@ class SearchApiController extends Controller
 
         if ($request->filled('search')) {
 
-            $search = collect(preg_split('/\s+/', trim($request->search)))
+            $terms = collect(explode(' ', $request->search))
                 ->filter()
-                ->map(fn($word) => '+' . $word . '*')
+                ->map(fn($term) => $term . '*')
                 ->implode(' ');
 
             $query->selectRaw("
-            (
-                MATCH(posts.title) AGAINST (? IN BOOLEAN MODE) * 3 +
-                MATCH(posts.excerpt, posts.description) AGAINST (? IN BOOLEAN MODE) * 2 +
-                MATCH(posts.tags) AGAINST (? IN BOOLEAN MODE) * 4
-            ) AS relevance
-        ", [$search, $search, $search]);
-
-            $query->whereRaw("
-            MATCH(posts.title, posts.excerpt, posts.description, posts.tags)
+            posts.*,
+            MATCH(title, excerpt, description, tags)
+            AGAINST (? IN BOOLEAN MODE) AS relevance
+        ", [$terms])
+                ->whereRaw("
+            MATCH(title, excerpt, description, tags)
             AGAINST (? IN BOOLEAN MODE)
-        ", [$search]);
+        ", [$terms]);
 
             $query->orderByDesc('relevance');
         }
