@@ -33,6 +33,7 @@ class SearchApiController extends Controller
             AGAINST (? IN BOOLEAN MODE)
         ", [$terms])
             ->with('post_program')
+            ->where('status', 'published')
             ->orderByDesc('relevance');
 
         return $query->paginate(6);
@@ -41,7 +42,8 @@ class SearchApiController extends Controller
     {
         $query = Post::query()
             ->select('posts.*')
-            ->with(['post_program', 'categories']);
+            ->with(['post_program', 'categories'])
+            ->where('status', 'published');
 
         if ($request->filled('search')) {
 
