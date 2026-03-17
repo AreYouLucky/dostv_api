@@ -19,4 +19,7 @@
             </style>
         @endif
     </head>
+    <body class="poppins-regular">
+        <div id="app"></div>
+    </body>
 </html>
