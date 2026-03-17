@@ -37,24 +37,21 @@ class SearchApiController extends Controller
 
         return $query->paginate(6);
     }
-public function advanceSearch(Request $request)
-{
-    $query = Post::query()
-        ->select('posts.*')
-        ->leftJoin('post_categories', 'posts.post_id', '=', 'post_categories.post_id')
-        ->leftJoin('post_agencies', 'posts.post_id', '=', 'post_agencies.post_id')
-        ->leftJoin('post_regions', 'posts.post_id', '=', 'post_regions.post_id')
-        ->with(['post_program', 'categories'])
-        ->distinct();
+    
+    public function advanceSearch(Request $request)
+    {
+        $query = Post::query()
+            ->select('posts.*')
+            ->with(['post_program', 'categories']);
 
-    if ($request->filled('search')) {
+        if ($request->filled('search')) {
 
-        $search = collect(preg_split('/\s+/', trim($request->search)))
-            ->filter()
-            ->map(fn($word) => '+' . $word . '*')
-            ->implode(' ');
+            $search = collect(preg_split('/\s+/', trim($request->search)))
+                ->filter()
+                ->map(fn($word) => '+' . $word . '*')
+                ->implode(' ');
 
-        $query->selectRaw("
+            $query->selectRaw("
             (
                 MATCH(posts.title) AGAINST (? IN BOOLEAN MODE) * 3 +
                 MATCH(posts.excerpt, posts.description) AGAINST (? IN BOOLEAN MODE) * 2 +
@@ -62,39 +59,55 @@ public function advanceSearch(Request $request)
             ) AS relevance
         ", [$search, $search, $search]);
 
-        $query->whereRaw("
+            $query->whereRaw("
             MATCH(posts.title, posts.excerpt, posts.description, posts.tags)
             AGAINST (? IN BOOLEAN MODE)
         ", [$search]);
 
-        $query->orderByDesc('relevance');
+            $query->orderByDesc('relevance');
+        }
+
+        $query->when($request->filled('program'), function ($q) use ($request) {
+            $q->where('posts.program_id', $request->program);
+        });
+
+        $query->when($request->filled('year'), function ($q) use ($request) {
+            $q->whereYear('posts.date_published', $request->year);
+        });
+
+        if (!empty($request->categories)) {
+            $query->whereExists(function ($q) use ($request) {
+                $q->selectRaw(1)
+                    ->from('post_categories')
+                    ->whereColumn('post_categories.post_id', 'posts.post_id')
+                    ->whereIn('post_categories.category', $request->categories);
+            });
+        }
+
+        if (!empty($request->agencies)) {
+            $query->whereExists(function ($q) use ($request) {
+                $q->selectRaw(1)
+                    ->from('post_agencies')
+                    ->whereColumn('post_agencies.post_id', 'posts.post_id')
+                    ->whereIn('post_agencies.agency_id', $request->agencies);
+            });
+        }
+
+        if (!empty($request->regions)) {
+            $query->whereExists(function ($q) use ($request) {
+                $q->selectRaw(1)
+                    ->from('post_regions')
+                    ->whereColumn('post_regions.post_id', 'posts.post_id')
+                    ->whereIn('post_regions.region_id', $request->regions);
+            });
+        }
+
+        $query->orderBy('posts.date_published', 'desc');
+
+        return response()->json(
+            $query->paginate(6, ['*'], 'page', $request->query('page', 1))
+        );
     }
-
-    $query->when($request->filled('program'), function ($q) use ($request) {
-        $q->where('posts.program_id', $request->program);
-    });
-
-    $query->when($request->filled('year'), function ($q) use ($request) {
-        $q->whereYear('posts.date_published', $request->year);
-    });
-
-    if (!empty($request->categories)) {
-        $query->whereIn('post_categories.category', $request->categories);
-    }
-
-    if (!empty($request->agencies)) {
-        $query->whereIn('post_agencies.agency_id', $request->agencies);
-    }
-
-    if (!empty($request->regions)) {
-        $query->whereIn('post_regions.region_id', $request->regions);
-    }
-    $query->orderBy('posts.date_published', 'desc');
-
-    return response()->json(
-        $query->paginate(6, ['*'], 'page', $request->query('page', 1))
-    );
-}
 
     public function loadSearchMounts()
     {
